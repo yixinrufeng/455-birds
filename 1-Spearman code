@@ -1,0 +1,112 @@
+#生态学参数
+setwd("path")
+getwd()
+install.packages("openxlsx")
+library(corrplot)
+library(car)
+library(openxlsx)
+
+# 加载数据
+data <- read.csv("生态学参数.csv", header = TRUE)
+
+# 检查数据类型
+cat("Data types:\n")
+str(data)
+
+# 定义要分析的列（所有需要分析的变量）
+analysis_cols <- c("Mass", "Beak_Length_Culmen", "Beak_Length_Nares", "Beak_Width", 
+                   "Beak_Depth", "Tarsus_Length", "Wing_Length", "Kipps_Distance", 
+                   "Secondary1", "Hand_Wing_Index", "Tail_Length", "Clutch_size", 
+                   "Generation_time", "Range_Size", "Primary_Lifestyle", "Migration", 
+                   "Trophic_Level", "Centroid_Latitude")
+
+# 检查并转换数值列
+for (col in analysis_cols) {
+  if (!is.numeric(data[[col]])) {
+    cat(col, "is not numeric. Converting to numeric...\n")
+    data[[col]] <- as.numeric(as.character(data[[col]]))
+    if (any(is.na(data[[col]]))) {
+      cat("Found non-numeric values in", col, ". Replacing with NA.\n")
+    }
+  }
+}
+
+
+# 计算Spearman相关系数矩阵（直接使用原始数据）
+cor_matrix <- cor(data[, analysis_cols], 
+                  use = "complete.obs", 
+                  method = "spearman")
+
+# 打印相关系数矩阵
+print(cor_matrix)
+
+# 保存相关系数矩阵为 Excel 文件
+write.xlsx(cor_matrix, file = "生态学参数_Spearman_correlation_matrix.xlsx")
+
+# 保存相关性矩阵的可视化图片为 PDF 文件
+pdf("生态学参数_Spearman_correlation_matrix_plot.pdf", width = 12, height = 12)
+corrplot(cor_matrix, 
+         method = "circle",    # 使用圆形表示相关性
+         type = "upper",       # 只显示上三角
+         order = "hclust",    # 按层次聚类排序
+         tl.col = "black",     # 标签颜色
+         tl.srt = 45,         # 标签旋转角度
+         title = "Spearman Correlation Matrix",  # 添加标题
+         mar = c(0, 0, 2, 0)) # 调整边距
+dev.off()
+
+
+#种群历史参数
+setwd("D:/05大论文3.0/2参数自相关/2种群历史参数")
+getwd()
+install.packages("openxlsx")
+library(corrplot)
+library(car)
+library(openxlsx)
+
+# 加载数据
+data <- read.csv("种群历史参数.csv", header = TRUE)
+
+# 检查数据类型
+cat("Data types:\n")
+str(data)
+
+# 定义要分析的列（所有需要分析的变量）
+analysis_cols <- c("Heterozygosity", "Minimum", "Harm_mean_Ne")
+
+# 检查并转换数值列
+for (col in analysis_cols) {
+  if (!is.numeric(data[[col]])) {
+    cat(col, "is not numeric. Converting to numeric...\n")
+    data[[col]] <- as.numeric(as.character(data[[col]]))
+    if (any(is.na(data[[col]]))) {
+      cat("Found non-numeric values in", col, ". Replacing with NA.\n")
+    }
+  }
+}
+
+# 删除包含 NA 的行
+data <- na.omit(data)
+
+# 计算Spearman相关系数矩阵（直接使用原始数据）
+cor_matrix <- cor(data[, analysis_cols], 
+                  use = "complete.obs", 
+                  method = "spearman")
+
+# 打印相关系数矩阵
+print(cor_matrix)
+
+# 保存相关系数矩阵为 Excel 文件
+write.xlsx(cor_matrix, file = "种群历史参数_Spearman_correlation_matrix.xlsx")
+
+# 保存相关性矩阵的可视化图片为 PDF 文件
+pdf("种群历史参数_Spearman_correlation_matrix_plot.pdf", width = 12, height = 12)
+corrplot(cor_matrix, 
+         method = "circle",    # 使用圆形表示相关性
+         type = "upper",       # 只显示上三角
+         order = "hclust",    # 按层次聚类排序
+         tl.col = "black",     # 标签颜色
+         tl.srt = 45,         # 标签旋转角度
+         title = "Spearman Correlation Matrix",  # 添加标题
+         mar = c(0, 0, 2, 0)) # 调整边距
+dev.off()
