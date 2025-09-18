@@ -1,0 +1,10 @@
+install.packages("mice")
+setwd("path")
+library(mice)
+library(ape)
+data<- read.csv("data.csv")
+mytree<-read.tree("all_tree_co_25.newick")
+pm <- quickpred(data)
+imputed_data <- mice(data, maxit = 100, m = 1, method = "pmm", tree = mytree, predictorMatrix = pm)     ##自动创建预测矩阵
+completed_data <- complete(imputed_data, action = 1)
+write.csv(completed_data, file = "imputed_data.csv", row.names = FALSE)
