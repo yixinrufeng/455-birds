@@ -1,0 +1,192 @@
+# ========================================
+# 1. Load required packages
+# ========================================
+library(MCMCglmm)
+library(coda)
+library(dplyr)
+library(readr)
+
+# Set working directory (adjust as needed)
+setwd("D:/05_Thesis3.0/5MCMCGLMM/R2_and_structure_coefficients/3Genome")
+
+# Output prefix
+prefix <- "D:/05_Thesis3.0/5MCMCGLMM/R2_and_structure_coefficients/3Genome/mod_genlh"
+
+# ========================================
+# Structure Coefficient (SC) Calculation
+# ========================================
+
+# Load model object
+models <- readRDS("gendiv_vs_lh_plus_bot.RData")
+mod_genlh <- models[[1]]  # use the first chain
+
+# Get design matrix (exclude intercept column)
+X_no_intercept <- mod_genlh$X[, -1, drop = FALSE]
+
+# Linear predictors
+Xbeta <- mod_genlh$X %*% t(mod_genlh$Sol)
+
+# Compute structure coefficients (only non-intercept variables)
+structure_coefs <- apply(X_no_intercept, 2, function(x) {
+  apply(Xbeta, 2, function(yhat) cor(x, yhat))
+})
+
+# Check variables included in the model
+print("Variables in the model:")
+print(colnames(structure_coefs))
+
+# Requested variable list (must match exact names)
+requested_vars <- c("Harm_mean_Ne", "Mass")
+
+# Keep only available ones
+available_vars <- intersect(requested_vars, colnames(structure_coefs))
+if (length(available_vars) < length(requested_vars)) {
+  missing_vars <- setdiff(requested_vars, available_vars)
+  warning("These variables were not found in the model: ", paste(missing_vars, collapse = ", "))
+  if (length(available_vars) == 0) {
+    stop("No requested variables found. Please check variable names.")
+  }
+}
+structure_coefs <- structure_coefs[, available_vars, drop = FALSE]
+
+# Posterior statistics (median and HPD interval)
+structure_summary <- t(apply(structure_coefs, 2, function(x) {
+  hpd <- HPDinterval(as.mcmc(x))
+  c(medianSC = median(x),
+    lower = hpd[1],
+    upper = hpd[2])
+}))
+
+# Format output
+structure_out <- data.frame(
+  pred = rownames(structure_summary),
+  round(structure_summary, 4),
+  row.names = NULL
+)
+structure_out <- structure_out[, c("pred", "medianSC", "lower", "upper")]
+
+# Save to file
+write.table(structure_out,
+            file = paste0(prefix, "_structure_coefficients.txt"),
+            sep = "\t",
+            row.names = FALSE,
+            quote = FALSE)
+
+# Preview results
+print("Final structure coefficient output:")
+print(structure_out)
+
+# ========================================
+# Beta Coefficient Calculation
+# ========================================
+mod_genlh %>%
+  summary() %$%
+  solutions %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("components") %>%
+  mutate(post_median = apply(mod_genlh$Sol, 2, median)) %>%
+  mutate(post_mode   = posterior.mode(mod_genlh$Sol)) %>%
+  .[c(1,2,7,8,3:6)] %>%
+  rename(
+    post_mean = post.mean,
+    lower     = "l-95% CI",
+    upper     = "u-95% CI"
+  ) %>%
+  write_delim(paste0("output/mcmcmodels/", mod_name, "_beta.txt"))
+
+# ========================================
+# R² Calculation
+# ========================================
+
+# Reload model
+models <- readRDS("gendiv_vs_lh_plus_bot.RData")
+mod_genlh <- models[[1]]
+
+# Core predictor variables
+var_names <- c("Centroid_Latitude", "Mass", "Migration", "Primary_Lifestyle", "Range_Size", "Trophic_Level")
+
+# Function to compute R²
+compute_R2 <- function(model, type = "marginal", exclude_vars = NULL) {
+  if (!is.null(exclude_vars)) {
+    X <- model$X[, setdiff(colnames(model$X), exclude_vars), drop = FALSE]
+  } else {
+    X <- model$X
+  }
+  beta <- model$Sol[, colnames(X), drop = FALSE]
+
+  # Fixed effect variance
+  fixed_pred <- X %*% t(beta)
+  var_fixed  <- apply(fixed_pred, 2, var)
+
+  # Random effect variance
+  random_effects <- c("tip_label", "Mapping_rate", "Sequencing_depth", "Missing_rate")
+  var_random <- rowSums(model$VCV[, random_effects, drop = FALSE])
+
+  # Residual variance
+  var_resid <- model$VCV[, "units"]
+
+  if (type == "marginal") {
+    R2 <- var_fixed / (var_fixed + var_random + var_resid)
+  } else {
+    R2 <- (var_fixed + var_random) / (var_fixed + var_random + var_resid)
+  }
+  return(R2)
+}
+
+# Full model R² (marginal and conditional)
+get_full_model_R2 <- function(model) {
+  R2_marginal     <- compute_R2(model, "marginal")
+  R2_conditional  <- compute_R2(model, "conditional")
+  data.frame(
+    type   = c("marginal", "conditional"),
+    median = c(median(R2_marginal), median(R2_conditional)),
+    lower  = c(quantile(R2_marginal, 0.025), quantile(R2_conditional, 0.025)),
+    upper  = c(quantile(R2_marginal, 0.975), quantile(R2_conditional, 0.975))
+  )
+}
+
+# Incremental R² (Delta R²)
+calculate_delta_R2 <- function(model, vars, type = "marginal") {
+  R2_full <- compute_R2(model, type = type)
+  delta_results <- list()
+  for (var in vars) {
+    R2_reduced <- compute_R2(model, type = type, exclude_vars = var)
+    delta_R2   <- R2_full - R2_reduced
+    delta_results[[var]] <- delta_R2
+  }
+  delta_summary <- data.frame(
+    variable = c("full_model", vars),
+    median   = c(median(R2_full), sapply(delta_results, median)),
+    lower    = c(quantile(R2_full, 0.025), sapply(delta_results, function(x) quantile(x, 0.025))),
+    upper    = c(quantile(R2_full, 0.975), sapply(delta_results, function(x) quantile(x, 0.975))),
+    row.names = NULL
+  )
+  return(list(delta_R2 = delta_results, summary = delta_summary))
+}
+
+# Run R² calculations
+full_model_R2     <- get_full_model_R2(mod_genlh)
+delta_marginal    <- calculate_delta_R2(mod_genlh, var_names, "marginal")
+delta_conditional <- calculate_delta_R2(mod_genlh, var_names, "conditional")
+
+# Combine results
+final_results <- list(
+  full_model             = full_model_R2,
+  marginal_contributions = delta_marginal$summary,
+  conditional_contributions = delta_conditional$summary
+)
+
+# Print results
+print("Full Model R²:")
+print(full_model_R2)
+
+print("Marginal R² Contributions:")
+print(delta_marginal$summary)
+
+print("Conditional R² Contributions:")
+print(delta_conditional$summary)
+
+# Save results
+write.csv(full_model_R2,              "full_model_R2.csv",          row.names = FALSE)
+write.csv(delta_marginal$summary,     "delta_R2_marginal.csv",      row.names = FALSE)
+write.csv(delta_conditional$summary,  "delta_R2_conditional.csv",   row.names = FALSE)
