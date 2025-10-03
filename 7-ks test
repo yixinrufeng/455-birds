@@ -1,0 +1,103 @@
+# KS tests for pairwise distribution differences
+# - For each target folder, run:
+#   (1) KS test between X0 and X1 from "2classify.csv"
+#   (2) All pairwise KS tests among X0..X5 from "6classify.csv"
+# Outputs: "KS_test_pairwise_results.csv" written in each folder
+
+library(readxl)
+library(survival)  # ks.test is in 'stats'; 'survival' loaded as in original context
+library(stats)
+library(utils)
+
+# ====== Configure your base directory (edit as needed) ======
+# (If you prefer English paths for GitHub, e.g., D:/05_Thesis3.0/6_significance_tests/)
+base_dir <- "D:/05大论文3.0/6显著性差异分析"
+
+# Subfolders to process (same as your original script)
+subfolders <- c(
+  "1Harm_mean_Ne",
+  "2Mass",
+  "3Clutch_size",
+  "4Range_size"
+)
+
+# ---------- Helpers ----------
+run_two_class_ks <- function(dir_path, file = "2classify.csv", out_name = "KS_test_pairwise_results.csv") {
+  setwd(dir_path)
+  if (!file.exists(file)) {
+    message("File not found (skipped): ", file, " in ", dir_path)
+    return(invisible(NULL))
+  }
+  data <- read.csv(file, header = TRUE, sep = ",")
+  # Expect two columns named X0 and X1 (as in the original code)
+  if (!all(c("X0", "X1") %in% names(data))) {
+    stop("Columns X0 and/or X1 are missing in ", file, " under ", dir_path)
+  }
+  LC <- data$X0
+  CO <- data$X1
+  ks_res <- ks.test(LC, CO)
+
+  # Save/print a minimal result table (one row)
+  res_df <- data.frame(
+    Group1 = "X0",
+    Group2 = "X1",
+    D_statistic = as.numeric(ks_res$statistic),
+    p_value = ks_res$p.value,
+    stringsAsFactors = FALSE
+  )
+  print(res_df)
+  write.csv(res_df, out_name, row.names = FALSE)
+  invisible(res_df)
+}
+
+run_six_class_all_pairs <- function(dir_path, file = "6classify.csv", out_name = "KS_test_pairwise_results.csv") {
+  setwd(dir_path)
+  if (!file.exists(file)) {
+    message("File not found (skipped): ", file, " in ", dir_path)
+    return(invisible(NULL))
+  }
+  data <- read.csv(file, header = TRUE, sep = ",")
+  # Expect columns X0..X5 (as in the original code)
+  needed <- paste0("X", 0:5)
+  if (!all(needed %in% names(data))) {
+    stop("Some of X0..X5 are missing in ", file, " under ", dir_path)
+  }
+
+  pairs <- combn(names(data), 2, simplify = FALSE)
+  results <- data.frame(
+    Group1 = character(),
+    Group2 = character(),
+    D_statistic = numeric(),
+    p_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+
+  for (pair in pairs) {
+    g1 <- pair[1]; g2 <- pair[2]
+    test_res <- ks.test(data[[g1]], data[[g2]])
+    results <- rbind(results, data.frame(
+      Group1 = g1,
+      Group2 = g2,
+      D_statistic = as.numeric(test_res$statistic),
+      p_value = test_res$p.value,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  results <- results[order(results$p_value), ]
+  print(results)
+  write.csv(results, out_name, row.names = FALSE)
+  invisible(results)
+}
+
+# ---------- Run for each subfolder ----------
+for (sub in subfolders) {
+  dir_path <- file.path(base_dir, sub)
+  message("Processing: ", dir_path)
+
+  # 2-class KS (X0 vs X1)
+  run_two_class_ks(dir_path, file = "2classify.csv", out_name = "KS_test_pairwise_results.csv")
+
+  # 6-class all-pairs KS (X0..X5)
+  run_six_class_all_pairs(dir_path, file = "6classify.csv", out_name = "KS_test_pairwise_results.csv")
+}
