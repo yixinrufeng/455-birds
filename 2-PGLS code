@@ -1,0 +1,103 @@
+# Set working directory
+setwd("D:/05_Thesis3.0/3PGLS")
+getwd()
+
+# Load required libraries
+library(ape)
+library(phylolm)
+
+# =========================
+# Models for Harm_mean_Ne
+# =========================
+
+# 1. Harm_mean_Ne ~ Sequencing_depth
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model <- phylolm(data$Harm_mean_Ne ~ data$Sequencing_depth, data = data, phy = tree, model = "BM")
+summary(model)
+AIC(model)
+logLik(model)
+
+# Alternative model example (commented out):
+# tree <- read.nexus("D:/04_Thesis2.0/Bird/Data/Tree/all_tree_co_25.nexus")
+# data <- read.csv("genetic_parameters.csv", row.names = 1)
+# model1 <- phylolm(data$Harm_mean_Ne ~ data$Sequencing_depth, data = data, phy = tree, model = "OUrandomRoot")
+# summary(model1)
+# AIC(model1)
+# logLik(model1)
+
+# 2. Harm_mean_Ne ~ Mapping_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model2 <- phylolm(data$Harm_mean_Ne ~ data$Mapping_rate, data = data, phy = tree, model = "BM")
+summary(model2)
+AIC(model2)
+logLik(model2)
+
+# 3. Harm_mean_Ne ~ Missing_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model4 <- phylolm(data$Harm_mean_Ne ~ data$Missing_rate, data = data, phy = tree, model = "BM")
+summary(model4)
+AIC(model4)
+logLik(model4)
+
+
+# =========================
+# Models for Minimum Ne
+# =========================
+
+# 1. Minimum ~ Sequencing_depth
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model <- phylolm(data$Minimum ~ data$Sequencing_depth, data = data, phy = tree, model = "BM")
+summary(model)
+AIC(model)
+logLik(model)
+
+# 2. Minimum ~ Mapping_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model2 <- phylolm(data$Minimum ~ data$Mapping_rate, data = data, phy = tree, model = "BM")
+summary(model2)
+AIC(model2)
+logLik(model2)
+
+# 3. Minimum ~ Missing_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model4 <- phylolm(data$Minimum ~ data$Missing_rate, data = data, phy = tree, model = "BM")
+summary(model4)
+AIC(model4)
+logLik(model4)
+
+
+# =========================
+# Models for Genome-wide Heterozygosity
+# =========================
+
+# 1. Heterozygosity ~ Sequencing_depth
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model <- phylolm(data$Heterozygosity ~ data$Sequencing_depth, data = data, phy = tree, model = "BM")
+summary(model)
+AIC(model)
+logLik(model)
+
+# 2. Heterozygosity ~ Mapping_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model2 <- phylolm(data$Heterozygosity ~ data$Mapping_rate, data = data, phy = tree, model = "BM")
+summary(model2)
+AIC(model2)
+logLik(model2)
+
+# 3. Heterozygosity ~ Missing_rate
+tree <- read.nexus("D:/05_Thesis3.0/1_data/tree.nex")
+data <- read.csv("all_data.csv", row.names = 1)
+model4 <- phylolm(data$Heterozygosity ~ data$Missing_rate, data = data, phy = tree, model = "BM")
+summary(model4)
+AIC(model4)
+logLik(model4)
+
+
