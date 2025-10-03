@@ -1,0 +1,99 @@
+# Set working directory
+setwd("/raid6/bird/hp/pglmm")
+
+# Load required R packages
+library(phyr)
+library(ape)
+library(ggtree)
+library(phytools)
+library(tidyverse)
+library(MASS)
+library(caper)
+library(MuMIn)
+
+# Set working directory again (redundant but kept for consistency)
+setwd("/raid6/bird/hp/pglmm")
+
+# Load dataset
+data <- read.csv("all_data.csv")
+
+# Load phylogenetic tree
+phylo_tree <- read.tree("tree.newick")
+
+# =========================
+# Data preprocessing
+# =========================
+
+# Log-transform and standardize predictors
+data$Mass1 <- scale(log10(data$Mass))
+data$Hand_Wing_Index1 <- scale(log10(data$Hand_Wing_Index))
+data$Clutch_size1 <- scale(log10(data$Clutch_size))
+data$Range_Size1 <- scale(log10(data$Range_Size))
+
+# For latitude: convert to absolute value -> log-transform -> standardize
+data$Centroid_Latitude1 <- scale(log10(abs(data$Centroid_Latitude)))
+
+
+# =========================
+# PGLMM analysis
+# =========================
+
+# Univariate model (example with Trophic_Level)
+dr <- pglmm(Harm_mean_Ne ~ Trophic_Level + 
+              (1|Latin_name) + (1|Sequencing_depth) + (1|Mapping_rate) + (1|Missing_rate), 
+            data = data, 
+            cov_ranef = list(Latin_name = phylo_tree))
+summary(dr)
+
+# =========================
+# Multivariate model combinations
+# =========================
+
+predictors <- c("Mass1","Range_Size1","Centroid_Latitude1",
+                "Primary_Lifestyle1","Migration1","Trophic_Level1")
+
+# Generate all possible predictor combinations
+combinations <- lapply(1:length(predictors), function(n) combn(predictors, n, simplify = FALSE))
+combinations <- unlist(combinations, recursive = FALSE)
+
+# Empty dataframe to store results
+results_df <- data.frame(
+  combination = character(),
+  formula = character(),
+  p_value = numeric(),
+  z_value = numeric(),
+  se_value = numeric(),
+  v_value = numeric(),
+  aic_value = numeric(),
+  bic_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Iterate over each combination, fit models, and compute AIC/BIC
+for (combo in combinations) {
+  # Build formula
+  formula_str <- paste("Harm_mean_Ne ~", paste(combo, collapse = "+"), 
+                       "+ (1|Latin_name) + (1|Sequencing_depth) + (1|Mapping_rate) + (1|Missing_rate)")
+  
+  # Fit model
+  df_combo <- pglmm(as.formula(formula_str), data = data, cov_ranef = list(Latin_name = phylo_tree))
+  
+  # Store results
+  results_df <- rbind(results_df, data.frame(
+    combination = paste(combo, collapse = "+"),
+    formula = formula_str,
+    p_value = df_combo$B.pvalue,
+    z_value = df_combo$B.zscore,
+    se_value = df_combo$B.se,
+    v_value = df_combo$B,
+    aic_value = df_combo$AIC,
+    bic_value = df_combo$BIC,
+    stringsAsFactors = FALSE
+  ))
+}
+
+# View results
+print(results_df)
+
+# Save results to CSV file
+write.csv(results_df, file = "Harm_mean_Ne_results.csv", row.names = FALSE)
