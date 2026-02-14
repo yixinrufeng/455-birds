@@ -1,0 +1,17 @@
+grep -E 'RI|TR' Asup.psmc >t.txt
+awk '
+/^RI[[:space:]]/ {
+    ri_count++
+    if (ri_count > 5 && $2 != "inf") {
+        if (!found || $2 < min) {
+            min = $2
+            getline nextline
+            best_tr = nextline
+            found = 1
+        }
+    }
+}
+END {
+    if (found) print best_tr
+}
+' t.txt
